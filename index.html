@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mapa de Gestión Sísmica de Emergencias</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* ===== BASE ===== */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #header {
+            background: #1a365d;
+            color: white;
+            padding: 10px 16px;
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            flex-shrink: 0;
+            z-index: 1000;
+        }
+
+        #container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ===== MAPA ===== */
+        #map {
+            flex: 2.5;
+            height: 100%;
+            background: #e5e7eb;
+        }
+
+        /* ===== SIDEBAR ESCRITORIO ===== */
+        #sidebar {
+            flex: 1.2;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            border-left: 2px solid #cbd5e0;
+            min-width: 360px;
+        }
+
+        /* Tabs — ocultos en escritorio */
+        #mobileTabs {
+            display: none;
+        }
+
+        #fab {
+            display: none;
+        }
+
+        .panel-section {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        #formSection {
+            border-bottom: 2px solid #e2e8f0;
+            background: #ffffff;
+        }
+
+        #listSection {
+            flex: 1;
+            background: #f1f5f9;
+        }
+
+        /* ===== FORMULARIO ===== */
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2d3748;
+            font-size: 0.9rem;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            font-size: 16px;
+            /* evita zoom en iOS */
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2b6cb0;
+        }
+
+        .btn-submit-fixed {
+            background: #e53e3e;
+            margin-top: 10px;
+        }
+
+        .btn-submit-fixed:hover {
+            background: #c53030;
+        }
+
+        .insumo-row {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* ===== TABLAS ===== */
+        .card-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            background: #f8fafc;
+        }
+
+        .card-table th,
+        .card-table td {
+            border: 1px solid #e2e8f0;
+            padding: 5px;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        .card-table th {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        /* ===== FILTROS ===== */
+        .filter-container {
+            background: #ffffff;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e0;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* ===== TARJETAS ===== */
+        .report-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .report-card {
+            background: white;
+            border-left: 5px solid #333;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .05);
+            transition: transform .2s;
+        }
+
+        .report-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, .1);
+        }
+
+        .report-card h4 {
+            margin: 0 0 5px;
+            color: #1a202c;
+            font-size: 1rem;
+        }
+
+        .report-card p {
+            margin: 0 0 8px;
+            color: #4a5568;
+            font-size: 0.85rem;
+        }
+
+        .report-card .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            border-radius: 12px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .report-card .btn-go {
+            width: auto;
+            padding: 4px 10px;
+            font-size: 0.8rem;
+            background: #4a5568;
+            margin-top: 8px;
+        }
+
+        /* ==========================================
+           ===== ENTORNO MÓVIL FORZADO (<768px) =====
+           ========================================== */
+        @media (max-width: 768px) {
+
+            #header {
+                font-size: 0.9rem;
+                padding: 8px 12px;
+            }
+
+            #container {
+                flex-direction: column;
+                position: relative;
+            }
+
+            #map {
+                flex: none;
+                position: absolute;
+                inset: 0;
+                height: 100%;
+                width: 100%;
+                z-index: 1;
+            }
+
+            /* Panel inferior deslizable móvil */
+            #sidebar {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 500;
+                min-width: unset;
+                border-left: none;
+                border-top: 3px solid #3182ce;
+                border-radius: 16px 16px 0 0;
+                box-shadow: 0 -4px 20px rgba(0, 0, 0, .25);
+                display: flex;
+                flex-direction: column;
+                background: #ffffff;
+
+                max-height: 52px;
+                height: 60vh;
+                transition: max-height .3s cubic-bezier(0.25, 1, 0.5, 1);
+                overflow: hidden;
+            }
+
+            #sidebar.panel-open {
+                max-height: 60vh;
+            }
+
+            /* Pestañas móvil */
+            #mobileTabs {
+                display: flex;
+                background: #1a365d;
+                border-radius: 14px 14px 0 0;
+                flex-shrink: 0;
+                height: 52px;
+                width: 100%;
+            }
+
+            .tab-btn {
+                flex: 1;
+                padding: 12px 6px;
+                background: transparent;
+                color: #a0aec0;
+                border: none;
+                font-size: 0.8rem;
+                font-weight: bold;
+                cursor: pointer;
+                border-radius: 14px 14px 0 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 5px;
+            }
+
+            .tab-btn.active {
+                color: white;
+                background: #2b6cb0;
+            }
+
+            .tab-toggle-btn {
+                background: transparent;
+                color: #a0aec0;
+                border: none;
+                padding: 12px 14px;
+                font-size: 1.1rem;
+                cursor: pointer;
+                width: auto;
+            }
+
+            /* Contenedores de pestañas */
+            .tab-content {
+                display: none;
+                height: calc(100% - 52px);
+                overflow: hidden;
+                width: 100%;
+            }
+
+            .tab-content.active {
+                display: flex;
+                flex-direction: column;
+            }
+
+            #formSection {
+                padding: 0 !important;
+                background: #ffffff;
+                height: 100%;
+            }
+
+            #listSection {
+                padding: 12px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                background: #f1f5f9;
+            }
+
+            #emergencyForm {
+                display: block;
+                height: 100%;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            /* Contenedor con scroll para los inputs */
+            .form-scroll-body {
+                height: 100%;
+                overflow-y: auto !important;
+                padding: 15px 15px 70px 15px;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* 🚀 FIX SINCRO: Posicionamiento Fixed Absoluto apuntando a la clase correcta */
+            #emergencyForm button.btn-submit-fixed {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: 54px;
+                padding: 0;
+                margin: 0;
+                border-radius: 0;
+                background: #e53e3e !important;
+                color: white;
+                font-size: 1rem;
+                font-weight: bold;
+                box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.25);
+                border: none;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 99999 !important;
+            }
+
+            /* Si el panel del formulario NO está abierto, ocultamos su botón fijo global */
+            #sidebar:not(.panel-open) #emergencyForm button.btn-submit-fixed {
+                display: none !important;
+            }
+
+            /* Ocultar el FAB azul flotante si el panel sube */
+            #sidebar.panel-open~#fab {
+                display: none !important;
+            }
+
+            #fab {
+                display: flex;
+                position: absolute;
+                bottom: 64px;
+                right: 16px;
+                z-index: 400;
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                background: #3182ce;
+                color: white;
+                font-size: 1.5rem;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+                border: none;
+                cursor: pointer;
+            }
+
+            .insumo-row {
+                flex-wrap: wrap;
+            }
+
+            .insumo-row input {
+                flex: 1 1 80px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="header">📍 Sistema de Contingencia y Control de Desastres</div>
+
+    <div id="container">
+        <div id="map"></div>
+
+        <button id="fab" onclick="togglePanel()" title="Abrir panel">📋</button>
+
+        <div id="sidebar">
+            <div id="mobileTabs">
+                <button id="tab-form" class="tab-btn active" onclick="switchTab('form')">✏️ Nuevo Reporte</button>
+                <button id="tab-list" class="tab-btn" onclick="switchTab('list')">📍 Ver Lista</button>
+                <button class="tab-toggle-btn" onclick="togglePanel()" title="Cerrar">✕</button>
+            </div>
+
+            <div id="formSection" class="panel-section tab-content active">
+                <form id="emergencyForm" onsubmit="event.preventDefault();">
+
+                    <div class="form-scroll-body">
+                        <div class="form-group">
+                            <label for="categoria">Categoría del Evento</label>
+                            <select id="categoria" onchange="toggleInventario(this.value)">
+                                <option value="acopio">Centro de Acopio / Suministros</option>
+                                <option value="medico">Asistencia Médica / Clínicas</option>
+                                <option value="damnificados">Refugio / Damnificados</option>
+                                <option value="congestion">Colapso Vial / Tránsito</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="nombre_lugar">Nombre del Lugar</label>
+                            <input type="text" id="nombre_lugar" placeholder="Ej: Escuela Bolivariana">
+                        </div>
+                        <div class="form-group">
+                            <label>Coordenadas (Haga clic en el mapa)</label>
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" id="lat" placeholder="Latitud" readonly>
+                                <input type="text" id="lng" placeholder="Longitud" readonly>
+                            </div>
+                            <button type="button" onclick="preguntarPorUbicacion()"
+                                style="margin-top:8px; width:auto; padding:6px 10px; background:#2f855a;">
+                                📍 Usar mi ubicación
+                            </button>
+                            <div id="ubicacionStatus"
+                                style="margin-top:6px; font-size:0.8rem; color:#4a5568; line-height:1.4;">
+                                La app puede usar su ubicación actual si usted lo autoriza. Si prefiere, también puede elegir un punto manualmente en el mapa.
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="descripcion">Descripción de la Situación</label>
+                            <textarea id="descripcion" rows="2" placeholder="Detalles del estado actual..."></textarea>
+                        </div>
+
+                        <div id="invSection" style="margin-bottom: 12px;">
+                            <label style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Inventario Inicial</span>
+                                <button type="button" onclick="agregarFilaInsumo()"
+                                    style="width:auto; padding:2px 8px; font-size:0.8rem; background:#4a5568;">+
+                                    Añadir</button>
+                            </label>
+                            <div id="insumosContainer" style="margin-top:5px;"></div>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn-submit-fixed" onclick="procesarFormularioManual()">Publicar
+                        Marcador</button>
+                </form>
+            </div>
+
+            <div id="listSection" class="panel-section tab-content">
+                <div class="filter-container">
+                    <div>
+                        <label for="filtroCategoria">📂 Filtrar por Tipo de Punto:</label>
+                        <select id="filtroCategoria" onchange="filtrarYRenderizarLista()">
+                            <option value="todos">--- Todos los Marcadores ---</option>
+                            <option value="acopio">Centros de Acopio</option>
+                            <option value="medico">Asistencia Médica</option>
+                            <option value="damnificados">Refugios</option>
+                            <option value="congestion">Colapso Vial</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filtroInsumo">📦 Buscar Insumo Específico (Ej: Gasas):</label>
+                        <input type="text" id="filtroInsumo" placeholder="Escribe el nombre de un insumo..."
+                            oninput="filtrarYRenderizarLista()">
+                    </div>
+                </div>
+
+                <div id="listaReportes" class="report-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Inicialización del Mapa centrado en Caracas
+        const map = L.map('map').setView([10.4806, -66.9036], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        const geoColors = {
+            acopio: '#2980b9',
+            medico: '#27ae60',
+            damnificados: '#8e44ad',
+            congestion: '#d35400'
+        };
+
+        const categoriaTextos = {
+            acopio: 'Centro de Acopio',
+            medico: 'Asistencia Médica',
+            damnificados: 'Refugio / Damnificados',
+            congestion: 'Colapso Vial'
+        };
+
+        let tempMarker = null;
+        let todosLosReportes = [];
+        let marcadoresEnMapa = [];
+
+        // Capturar click interactivo en el mapa para setear las coordenadas
+        map.on('click', (e) => {
+            document.getElementById('lat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('lng').value = e.latlng.lng.toFixed(6);
+            if (tempMarker) tempMarker.setLatLng(e.latlng);
+            else tempMarker = L.marker(e.latlng).addTo(map);
+        });
+
+        function toggleInventario(value) {
+            document.getElementById('invSection').style.display = (value === 'acopio') ? 'block' : 'none';
+        }
+        toggleInventario('acopio');
+
+        function mostrarEstadoUbicacion(mensaje, tipo = 'info') {
+            const status = document.getElementById('ubicacionStatus');
+            status.textContent = mensaje;
+            if (tipo === 'error') status.style.color = '#c53030';
+            else if (tipo === 'success') status.style.color = '#2f855a';
+            else status.style.color = '#4a5568';
+        }
+
+        function actualizarMarcadorDesdeCoordenadas(lat, lng) {
+            document.getElementById('lat').value = lat.toFixed(6);
+            document.getElementById('lng').value = lng.toFixed(6);
+            const punto = { lat, lng };
+            if (tempMarker) tempMarker.setLatLng(punto);
+            else tempMarker = L.marker(punto).addTo(map);
+            map.setView(punto, 15, { animate: true, duration: 1 });
+        }
+
+        function esContextoSeguroParaGeolocalizacion() {
+            return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        }
+
+        async function verificarEstadoPermisoGeolocalizacion() {
+            if (!navigator.permissions) return null;
+            try {
+                const status = await navigator.permissions.query({ name: 'geolocation' });
+                return status.state;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        async function preguntarPorUbicacion() {
+            const deseaUsarUbicacion = confirm('¿Desea permitir que la app use su ubicación actual para este marcador?');
+            if (!deseaUsarUbicacion) {
+                mostrarEstadoUbicacion('Se mantendrá la ubicación manual. Puede elegir un punto en el mapa.', 'info');
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                mostrarEstadoUbicacion('Tu navegador no admite geolocalización.', 'error');
+                return;
+            }
+
+            if (!esContextoSeguroParaGeolocalizacion()) {
+                mostrarEstadoUbicacion('La geolocalización solo funciona en HTTPS o en localhost. Abre la app en https:// o en localhost.', 'error');
+                return;
+            }
+
+            const permiso = await verificarEstadoPermisoGeolocalizacion();
+            if (permiso === 'denied') {
+                mostrarEstadoUbicacion('El permiso de ubicación está bloqueado en el navegador. Revisa los ajustes de sitio y permite el acceso.', 'error');
+                return;
+            }
+
+            mostrarEstadoUbicacion('Solicitando permiso para usar su ubicación…');
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const mensaje = `Se detectó tu ubicación: ${lat.toFixed(6)}, ${lng.toFixed(6)}. ¿Deseas usar esta ubicación para el marcador?`;
+                    if (confirm(mensaje)) {
+                        actualizarMarcadorDesdeCoordenadas(lat, lng);
+                        mostrarEstadoUbicacion('Ubicación actual confirmada.', 'success');
+                    } else {
+                        mostrarEstadoUbicacion('Ubicación descartada. Puedes elegir otra manualmente.', 'info');
+                    }
+                },
+                (error) => {
+                    let mensaje = 'No se pudo obtener tu ubicación.';
+                    if (error.code === 1) {
+                        mensaje = 'Permiso denegado. Revisa los permisos de ubicación del navegador y del dispositivo.';
+                    } else if (error.code === 2) {
+                        mensaje = 'La ubicación no está disponible en este momento. Asegúrate de tener señal GPS o Wi‑Fi.';
+                    } else if (error.code === 3) {
+                        mensaje = 'La solicitud de ubicación tardó demasiado. Inténtalo de nuevo con mejor señal.';
+                    }
+                    mostrarEstadoUbicacion(mensaje, 'error');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+        }
+
+        function generarUUID() {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function agregarFilaInsumo() {
+            const container = document.getElementById('insumosContainer');
+            const div = document.createElement('div');
+            div.className = 'insumo-row';
+            div.innerHTML = `
+                <input type="text" placeholder="Item" class="name">
+                <input type="number" placeholder="Cant" class="qty" min="1">
+                <input type="text" placeholder="Unidad" class="unit">
+            `;
+            container.appendChild(div);
+        }
+
+        function agregarMarcadorMapa(data) {
+            const color = geoColors[data.categoria] || '#333';
+            const circle = L.circleMarker([data.latitud, data.longitud], {
+                radius: 11, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
+            }).addTo(map);
+
+            let popupHTML = `
+                <strong style="font-size:1.05rem; color:#1a365d;">${data.nombre_lugar}</strong><br>
+                <span style="color:${color}; font-weight:bold; font-size:0.85rem;">${categoriaTextos[data.categoria].toUpperCase()}</span><br>
+                <p style="margin:5px 0; font-size:0.9rem;">${data.descripcion}</p>
+            `;
+
+            if (data.categoria === 'acopio' && data.insumos && data.insumos.length > 0) {
+                popupHTML += `<strong>Inventario:</strong><table class="card-table"><tr><th>Insumo</th><th>Cant.</th><th>Unid.</th></tr>`;
+                data.insumos.forEach(i => {
+                    popupHTML += `<tr><td>${i.item_nombre}</td><td>${i.cantidad}</td><td>${i.unidad}</td></tr>`;
+                });
+                popupHTML += `</table>`;
+            }
+            circle.bindPopup(popupHTML);
+            marcadoresEnMapa.push(circle);
+        }
+
+        function filtrarYRenderizarLista() {
+            const filtroCat = document.getElementById('filtroCategoria').value;
+            const filtroInsumo = document.getElementById('filtroInsumo').value.trim().toLowerCase();
+            const listaContainer = document.getElementById('listaReportes');
+
+            listaContainer.innerHTML = '';
+            marcadoresEnMapa.forEach(m => map.removeLayer(m));
+            marcadoresEnMapa = [];
+
+            const reportesFiltrados = todosLosReportes.filter(r => {
+                const cumpleCategoria = (filtroCat === 'todos' || r.categoria === filtroCat);
+                let cumpleInsumo = true;
+                if (filtroInsumo !== '') {
+                    if (!r.insumos || r.insumos.length === 0) {
+                        cumpleInsumo = false;
+                    } else {
+                        cumpleInsumo = r.insumos.some(i => i.item_nombre.toLowerCase().includes(filtroInsumo));
+                    }
+                }
+                return cumpleCategoria && cumpleInsumo;
+            });
+
+            if (reportesFiltrados.length === 0) {
+                listaContainer.innerHTML = '<p style="text-align:center; color:#718096; font-size:0.9rem; margin-top:20px;">No se encontraron puntos con los filtros seleccionados.</p>';
+                return;
+            }
+
+            reportesFiltrados.forEach(punto => {
+                agregarMarcadorMapa(punto);
+
+                const color = geoColors[punto.categoria] || '#333';
+                const card = document.createElement('div');
+                card.className = 'report-card';
+                card.style.borderLeftColor = color;
+
+                let tablaInsumosHTML = '';
+                if (punto.categoria === 'acopio' && punto.insumos && punto.insumos.length > 0) {
+                    tablaInsumosHTML = `
+                        <table class="card-table">
+                            <thead>
+                                <tr><th>Insumo</th><th>Cant.</th><th>Unid.</th></tr>
+                            </thead>
+                            <tbody>
+                                ${punto.insumos.map(i => {
+                        const coincide = filtroInsumo && i.item_nombre.toLowerCase().includes(filtroInsumo);
+                        const estiloFila = coincide ? 'style="background: #fef08a; font-weight: bold;"' : '';
+                        return `<tr ${estiloFila}><td>${i.item_nombre}</td><td>${i.cantidad}</td><td>${i.unidad}</td></tr>`;
+                    }).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <span class="badge" style="background:${color}">${categoriaTextos[punto.categoria]}</span>
+                    <h4>${punto.nombre_lugar}</h4>
+                    <p>${punto.descripcion}</p>
+                    ${tablaInsumosHTML}
+                    <button class="btn-go" onclick="irAlMarcador(${punto.latitud}, ${punto.longitud})">🎯 Centrar en mapa</button>
+                `;
+                listaContainer.appendChild(card);
+            });
+        }
+
+        function irAlMarcador(lat, lng) {
+            map.setView([lat, lng], 15, { animate: true, duration: 1 });
+            marcadoresEnMapa.forEach(m => {
+                if (m.getLatLng().lat === lat && m.getLatLng().lng === lng) {
+                    m.openPopup();
+                }
+            });
+        }
+
+        // --- FUNCIONES DE NAVEGACIÓN MÓVIL ---
+        function togglePanel() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('panel-open');
+        }
+
+        function switchTab(tabName) {
+            document.getElementById('sidebar').classList.add('panel-open');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            if (tabName === 'form') {
+                document.getElementById('formSection').classList.add('active');
+            } else if (tabName === 'list') {
+                document.getElementById('listSection').classList.add('active');
+            }
+        }
+
+        // --- FUNCIÓN DE VALIDACIÓN Y PROCESAMIENTO TOTALMENTE MANAL (FIX OPERATIVO) ---
+        async function procesarFormularioManual() {
+            const nombre_lugar = document.getElementById('nombre_lugar').value.trim();
+            let latRaw = document.getElementById('lat').value;
+            let lngRaw = document.getElementById('lng').value;
+            const descripcion = document.getElementById('descripcion').value.trim();
+            const categoria = document.getElementById('categoria').value;
+
+            // Validación mediante condicionales JavaScript puros para prevenir bloqueos por atributos nativos 'readonly'
+            if (!nombre_lugar) {
+                alert("Por favor, introduce el Nombre del Lugar.");
+                document.getElementById('nombre_lugar').focus();
+                return;
+            }
+            if (!latRaw || !lngRaw) {
+                const usarUbicacion = confirm('No hay coordenadas seleccionadas. ¿Deseas usar tu ubicación actual para este marcador?');
+                if (!usarUbicacion) {
+                    alert("Por favor, selecciona un punto en el mapa o usa tu ubicación actual.");
+                    return;
+                }
+
+                if (!navigator.geolocation) {
+                    alert('Tu navegador no admite geolocalización.');
+                    return;
+                }
+
+                const posicion = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    });
+                });
+
+                const lat = posicion.coords.latitude;
+                const lng = posicion.coords.longitude;
+                actualizarMarcadorDesdeCoordenadas(lat, lng);
+                latRaw = document.getElementById('lat').value;
+                lngRaw = document.getElementById('lng').value;
+            }
+            if (!descripcion) {
+                alert("Por favor, introduce una Descripción detallada de la Situación.");
+                document.getElementById('descripcion').focus();
+                return;
+            }
+
+            const latitud = parseFloat(latRaw);
+            const longitud = parseFloat(lngRaw);
+            const id = generarUUID();
+
+            // Mapear filas dinámicas de insumos con control de vacíos
+            const insumos = [];
+            if (categoria === 'acopio') {
+                let filaIncompleta = false;
+                document.querySelectorAll('.insumo-row').forEach(row => {
+                    const nameEl = row.querySelector('.name');
+                    const qtyEl = row.querySelector('.qty');
+                    const unitEl = row.querySelector('.unit');
+
+                    if (nameEl && qtyEl && unitEl) {
+                        const nVal = nameEl.value.trim();
+                        const qVal = parseInt(qtyEl.value);
+                        const uVal = unitEl.value.trim();
+
+                        if (nVal || !isNaN(qVal) || uVal) {
+                            if (!nVal || isNaN(qVal) || qVal <= 0 || !uVal) {
+                                filaIncompleta = true;
+                            } else {
+                                insumos.push({
+                                    item_nombre: nVal,
+                                    cantidad: qVal,
+                                    unidad: uVal
+                                });
+                            }
+                        }
+                    }
+                });
+
+                if (filaIncompleta) {
+                    alert("Asegúrate de completar todos los campos (Item, Cantidad y Unidad) de las filas de insumos que agregaste.");
+                    return;
+                }
+            }
+
+            const payload = {
+                id,
+                categoria,
+                nombre_lugar,
+                descripcion,
+                latitud,
+                longitud,
+                reportado_en_cliente: new Date().toISOString(),
+                insumos
+            };
+
+            const botonPublicar = document.querySelector('.btn-submit-fixed');
+            botonPublicar.disabled = true;
+            botonPublicar.textContent = 'Publicando...';
+
+            try {
+                const res = await fetch('/api/reportes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errorBody = await res.json().catch(() => null);
+                    const mensaje = errorBody?.error || errorBody?.detalle || 'Error al guardar el reporte en el servidor.';
+                    throw new Error(mensaje);
+                }
+
+                todosLosReportes.unshift(payload);
+                filtrarYRenderizarLista();
+
+                document.getElementById('emergencyForm').reset();
+                document.getElementById('insumosContainer').innerHTML = '';
+                if (tempMarker) {
+                    map.removeLayer(tempMarker);
+                    tempMarker = null;
+                }
+                toggleInventario(document.getElementById('categoria').value);
+
+                alert('¡Reporte guardado y publicado exitosamente!');
+            } catch (err) {
+                console.error('Error al enviar reporte al servidor:', err);
+                alert(`No se pudo publicar el marcador: ${err.message}`);
+            } finally {
+                botonPublicar.disabled = false;
+                botonPublicar.textContent = 'Publicar Marcador';
+            }
+        }
+
+        // Carga inicial asíncrona de datos desde el Servidor
+        function cargarPuntosRemotos() {
+            fetch('/api/reportes')
+                .then(res => res.json())
+                .then(puntos => {
+                    todosLosReportes = puntos.map(p => ({
+                        id: p.id,
+                        categoria: p.categoria,
+                        nombre_lugar: p.nombre_lugar,
+                        descripcion: p.descripcion,
+                        latitud: parseFloat(p.latitud),
+                        longitud: parseFloat(p.longitud),
+                        insumos: p.insumos
+                    }));
+                    filtrarYRenderizarLista();
+                })
+                .catch(err => console.error('Error al mapear datos iniciales:', err));
+        }
+
+        window.onload = cargarPuntosRemotos;
+    </script>
+</body>
+
+</html>

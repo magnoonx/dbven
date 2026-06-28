@@ -1,0 +1,17 @@
+{
+    "name": "mapa-emergencia-backend",
+    "version": "2.1.0",
+    "description": "API REST transaccional para el mapa de contingencia sísmica con soporte .env",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "deploy": "node deploy.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.6.1",
+        "express": "^4.19.2",
+        "pg": "^8.11.5",
+        "ssh2": "^1.17.0"
+    }
+}
